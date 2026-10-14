@@ -2,15 +2,17 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from flask_cors import CORS
-from sqlalchemy import desc, asc, func 
+from sqlalchemy import desc, asc, func, text
 import os
 app = Flask(__name__)
 CORS(app) 
+
 # app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///database.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 api = Api(app)
+
 
 
 class CarModel(db.Model):
@@ -143,8 +145,17 @@ api.add_resource(Cars, "/api/cars/")
 api.add_resource(Car, "/api/cars/<int:id>")
 api.add_resource(TotalPrice, "/api/cars/total_price/") 
 
+@app.route("/health")
+def health():
+    db.session.execute(text("SELECT 1"))
+    return {"status": "ok"}, 200
+
+@app.route("/version")
+def version():
+    return {"version": "1"}, 200
+
+with app.app_context():
+    db.create_all()
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all() 
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)

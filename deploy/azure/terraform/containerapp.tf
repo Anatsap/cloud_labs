@@ -1,8 +1,12 @@
-
 resource "azurerm_container_app_environment" "env" {
-  name                = "${var.project}-container-env"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  name                           = "${var.project}-container-env"
+  resource_group_name            = azurerm_resource_group.rg.name
+  location                       = azurerm_resource_group.rg.location
+  infrastructure_subnet_id       = azurerm_subnet.app.id
+  internal_load_balancer_enabled = true
+  lifecycle {
+    ignore_changes = [infrastructure_resource_group_name]
+  }
 }
 
 resource "azurerm_container_app" "app" {
@@ -43,8 +47,9 @@ resource "azurerm_container_app" "app" {
   }
 
   ingress {
-    external_enabled = true
-    target_port      = 5000
+    allow_insecure_connections = true
+    external_enabled           = true
+    target_port                = 5000
     traffic_weight {
       percentage      = 100
       latest_revision = true
@@ -53,7 +58,10 @@ resource "azurerm_container_app" "app" {
 
   depends_on = [terraform_data.bootstrap_image]
 
-  lifecycle {
-    ignore_changes = [template[0].container[0].image]
+    lifecycle {
+    ignore_changes = [
+      template[0].container[0].image,
+      workload_profile_name,
+    ]
   }
 }

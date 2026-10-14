@@ -138,3 +138,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .venv
+
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+instance/

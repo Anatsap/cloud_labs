@@ -13,6 +13,12 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   storage_mb             = 32768
   sku_name               = "B_Standard_B1ms"
 
+  delegated_subnet_id = azurerm_subnet.db.id
+  private_dns_zone_id = azurerm_private_dns_zone.pg.id
+  public_network_access_enabled = false
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.pg]
+
   lifecycle {
     ignore_changes = [zone]
   }
@@ -23,11 +29,4 @@ resource "azurerm_postgresql_flexible_server_database" "db" {
   server_id = azurerm_postgresql_flexible_server.postgres.id
   charset   = "UTF8"
   collation = "en_US.utf8"
-}
-
-resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
-  name             = "allow-azure-services"
-  server_id        = azurerm_postgresql_flexible_server.postgres.id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "0.0.0.0"
 }

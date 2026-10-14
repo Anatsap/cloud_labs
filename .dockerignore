@@ -1,8 +1,10 @@
-.venv
-venv
-node_modules
-__pycache__
-instance
-*.db
 .git
-.github
+.venv
+__pycache__
+*.pyc
+instance
+.env
+deploy
+*.tfstate*
+.terraform
+node_modules
