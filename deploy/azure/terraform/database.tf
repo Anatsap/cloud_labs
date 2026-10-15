@@ -30,3 +30,14 @@ resource "azurerm_postgresql_flexible_server_database" "db" {
   charset   = "UTF8"
   collation = "en_US.utf8"
 }
+
+resource "random_password" "jwt" {
+  length  = 48
+  special = false
+}
+
+resource "random_password" "admin" {
+  length  = 20
+  special = false
+}
+

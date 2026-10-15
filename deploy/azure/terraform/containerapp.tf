@@ -30,6 +30,14 @@ resource "azurerm_container_app" "app" {
     name  = "database-url"
     value = "postgresql://${var.admin_username}:${random_password.db.result}@${azurerm_postgresql_flexible_server.postgres.fqdn}:5432/cardb?sslmode=require"
   }
+  secret {
+    name  = "jwt-secret"
+    value = random_password.jwt.result
+  }
+  secret {
+    name  = "admin-password"
+    value = random_password.admin.result
+  }
 
   template {
     min_replicas = 1
@@ -42,6 +50,14 @@ resource "azurerm_container_app" "app" {
       env {
         name        = "DATABASE_URL"
         secret_name = "database-url"
+      }
+      env {
+        name        = "JWT_SECRET_KEY"
+        secret_name = "jwt-secret"
+      }
+      env {
+        name        = "ADMIN_PASSWORD"
+        secret_name = "admin-password"
       }
     }
   }

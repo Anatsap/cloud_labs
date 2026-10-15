@@ -5,6 +5,8 @@ services:
       - "5000:5000"
     environment:
       DATABASE_URL: postgresql://dbuser:dbpassword@db:5432/dbname
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-localadmin}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-local-dev-secret-local-dev-secret-1234}
     depends_on:
       db:
         condition: service_healthy

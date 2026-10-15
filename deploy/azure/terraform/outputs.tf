@@ -19,3 +19,7 @@ output "tenant_id" {
 output "subscription_id" {
   value = data.azurerm_client_config.current.subscription_id
 }
+output "admin_password" {
+  value     = random_password.admin.result
+  sensitive = true
+}

@@ -5,6 +5,7 @@ from flask_cors import CORS
 from sqlalchemy import desc, asc, func, text
 import os
 from flasgger import Swagger
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 app = Flask(__name__)
 CORS(app) 
 
@@ -14,6 +15,39 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 api = Api(app)
 swagger = Swagger(app)
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY") or os.urandom(32).hex()
+app.config["PROPAGATE_EXCEPTIONS"] = True
+jwt = JWTManager(app)
+
+login_args = reqparse.RequestParser()
+login_args.add_argument("username", type=str, required=True)
+login_args.add_argument("password", type=str, required=True)
+
+
+class Login(Resource):
+    def post(self):
+        """
+        Get a JWT token
+        ---
+        tags: [Auth]
+        parameters:
+          - name: body
+            in: body
+            required: true
+            schema:
+              type: object
+              properties:
+                username: {type: string}
+                password: {type: string}
+        responses:
+          200: {description: Token}
+          401: {description: Bad credentials}
+        """
+        args = login_args.parse_args()
+        admin_password = os.environ.get("ADMIN_PASSWORD")
+        if admin_password and args["username"] == "admin" and args["password"] == admin_password:
+            return {"access_token": create_access_token(identity="admin")}, 200
+        return {"message": "Bad credentials"}, 401
 
 
 
@@ -99,6 +133,7 @@ class Cars(Resource):
         return cars, 200
 
     @marshal_with(carFields)
+    @jwt_required()
     def post(self):
         """
         Create a car
@@ -158,6 +193,7 @@ class Car(Resource):
         return car
     
     @marshal_with(carFields)
+    @jwt_required()
     def patch(self, id):
         """
         Update a car by id
@@ -195,6 +231,7 @@ class Car(Resource):
         return car
     
     @marshal_with(carFields)
+    @jwt_required()
     def delete(self, id):
         """
         Delete a car by id
@@ -217,6 +254,7 @@ class Car(Resource):
 api.add_resource(Cars, "/api/cars/")
 api.add_resource(Car, "/api/cars/<int:id>")
 api.add_resource(TotalPrice, "/api/cars/total_price/") 
+api.add_resource(Login, "/api/login")
 
 @app.route("/health")
 def health():
