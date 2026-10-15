@@ -263,7 +263,7 @@ def health():
 
 @app.route("/version")
 def version():
-    return {"version": "2"}, 200
+    return {"version": "3"}, 200
 
 with app.app_context():
     db.create_all()
