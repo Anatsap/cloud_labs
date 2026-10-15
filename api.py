@@ -4,6 +4,7 @@ from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
 from flask_cors import CORS
 from sqlalchemy import desc, asc, func, text
 import os
+from flasgger import Swagger
 app = Flask(__name__)
 CORS(app) 
 
@@ -12,6 +13,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 api = Api(app)
+swagger = Swagger(app)
 
 
 
@@ -75,6 +77,14 @@ def apply_filters(query, args):
 class Cars(Resource):
     @marshal_with(carFields)
     def get(self):
+        """
+        List cars
+        ---
+        tags: [Cars]
+        responses:
+          200:
+            description: List of cars
+        """
         args = car_get_parser.parse_args()
         query = CarModel.query
         
@@ -90,6 +100,27 @@ class Cars(Resource):
 
     @marshal_with(carFields)
     def post(self):
+        """
+        Create a car
+        ---
+        tags: [Cars]
+        parameters:
+          - name: body
+            in: body
+            required: true
+            schema:
+              type: object
+              properties:
+                brand: {type: string}
+                engine_power: {type: integer}
+                max_speed: {type: integer}
+                img: {type: string}
+                type: {type: string}
+                price: {type: number}
+        responses:
+          201:
+            description: Created
+        """
         args = car_args.parse_args()
         car = CarModel(brand=args["brand"], engine_power=args["engine_power"], 
                        max_speed=args["max_speed"], img=args["img"], 
@@ -111,6 +142,16 @@ class TotalPrice(Resource):
 class Car(Resource):
     @marshal_with(carFields)
     def get(self, id):
+        """
+        Get a car by id
+        ---
+        tags: [Car]
+        parameters:
+          - {name: id, in: path, type: integer, required: true}
+        responses:
+          200: {description: The car}
+          404: {description: Not found}
+        """
         car = CarModel.query.filter_by(id=id).first()
         if not car:
             abort(404, "Car not found")
@@ -118,6 +159,28 @@ class Car(Resource):
     
     @marshal_with(carFields)
     def patch(self, id):
+        """
+        Update a car by id
+        ---
+        tags: [Car]
+        parameters:
+          - {name: id, in: path, type: integer, required: true}
+          - name: body
+            in: body
+            required: true
+            schema:
+              type: object
+              properties:
+                brand: {type: string}
+                engine_power: {type: integer}
+                max_speed: {type: integer}
+                img: {type: string}
+                type: {type: string}
+                price: {type: number}
+        responses:
+          200: {description: The updated car}
+          404: {description: Not found}
+        """
         args = car_args.parse_args()
         car = CarModel.query.filter_by(id=id).first()
         if not car:
@@ -133,6 +196,16 @@ class Car(Resource):
     
     @marshal_with(carFields)
     def delete(self, id):
+        """
+        Delete a car by id
+        ---
+        tags: [Car]
+        parameters:
+          - {name: id, in: path, type: integer, required: true}
+        responses:
+          204: {description: Deleted}
+          404: {description: Not found}
+        """
         car = CarModel.query.filter_by(id=id).first()
         if not car:
             return {"message": "Car not found"}, 404 
