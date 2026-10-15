@@ -23,7 +23,7 @@ resource "azurerm_application_gateway" "agw" {
     tier     = "Standard_v2"
     capacity = 1
   }
-    ssl_policy {
+  ssl_policy {
     policy_type = "Predefined"
     policy_name = "AppGwSslPolicy20220101"
   }

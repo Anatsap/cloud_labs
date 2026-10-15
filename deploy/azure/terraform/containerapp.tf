@@ -7,6 +7,7 @@ resource "azurerm_container_app_environment" "env" {
   lifecycle {
     ignore_changes = [infrastructure_resource_group_name]
   }
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
 }
 
 resource "azurerm_container_app" "app" {
@@ -74,7 +75,7 @@ resource "azurerm_container_app" "app" {
 
   depends_on = [terraform_data.bootstrap_image]
 
-    lifecycle {
+  lifecycle {
     ignore_changes = [
       template[0].container[0].image,
       workload_profile_name,
