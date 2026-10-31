@@ -7,8 +7,10 @@ REST API каталогу автомобілів (Flask + Flask-RESTful + SQLAlc
 Запакований у Docker, інфраструктура описана в Terraform, розгорнуто в Azure
 за Application Gateway, автодеплой через GitHub Actions (OIDC).
 
-**Публічна адреса:** `http://172.213.229.147` (після `apply` береться з `terraform output service_url`)
-Swagger UI: `http://172.213.229.147/apidocs/`
+## Публічна адреса
+- Swagger : http://172.213.229.147/apidocs/
+- Список машин: http://172.213.229.147/api/cars/
+- Health check: http://172.213.229.147/health
 
 ## Ендпоінти
 

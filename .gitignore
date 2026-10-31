@@ -144,3 +144,5 @@ vite.config.ts.timestamp-*
 .terraform/
 terraform.tfvars
 instance/
+
+venv/
