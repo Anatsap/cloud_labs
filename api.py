@@ -79,6 +79,7 @@ car_get_parser = reqparse.RequestParser()
 car_get_parser.add_argument("sort", type=str, location='args', help="Sort by price: high or low")
 car_get_parser.add_argument("type", type=str, location='args', help="Filter by car type (comma separated)")
 car_get_parser.add_argument("search", type=str, location='args', help="Search term for brand or type")
+car_get_parser.add_argument("limit", type=int, location='args', help="Max number of cars to return")
 
 
 carFields = {
@@ -128,6 +129,12 @@ class Cars(Resource):
             query = query.order_by(desc(CarModel.price)) 
         elif sort_order == 'low':
             query = query.order_by(asc(CarModel.price)) 
+
+        limit = args.get('limit')
+        if limit:
+            if not sort_order:
+                query = query.order_by(desc(CarModel.id))
+            query = query.limit(min(max(limit, 1), 200))
 
         cars = query.all()
         return cars, 200

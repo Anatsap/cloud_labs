@@ -8,3 +8,17 @@ deploy
 *.tfstate*
 .terraform
 node_modules
+.git
+.github
+venv
+.venv
+__pycache__
+*.pyc
+instance
+.env
+deploy
+docs
+loadtest
+*.tfstate*
+.terraform
+node_modules

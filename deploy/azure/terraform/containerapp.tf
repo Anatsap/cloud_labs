@@ -42,6 +42,17 @@ resource "azurerm_container_app" "app" {
 
   template {
     min_replicas = 1
+    max_replicas = 4
+
+    custom_scale_rule {
+      name             = "cpu-60"
+      custom_rule_type = "cpu"
+      metadata = {
+        type  = "Utilization"
+        value = "60"
+      }
+    }
+
     container {
       name   = "api"
       image  = "${azurerm_container_registry.acr.login_server}/${var.project}-api:bootstrap"
