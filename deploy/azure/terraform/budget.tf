@@ -7,7 +7,7 @@ resource "azurerm_consumption_budget_subscription" "budget" {
   time_grain      = "Monthly"
 
   time_period {
-    start_date = "2026-10-01T00:00:00Z"
+    start_date = formatdate("YYYY-MM-01'T'00:00:00'Z'", timestamp())
   }
 
   notification {
@@ -16,5 +16,9 @@ resource "azurerm_consumption_budget_subscription" "budget" {
     operator       = "GreaterThan"
     threshold_type = "Actual"
     contact_emails = [var.budget_email]
+  }
+
+  lifecycle {
+    ignore_changes = [time_period]
   }
 }

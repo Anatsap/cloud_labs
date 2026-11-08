@@ -27,3 +27,12 @@ variable "admin_username" {
   default = "psqladmin"
 }
 
+variable "cache_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "schedule_enabled" {
+  type    = bool
+  default = false
+}

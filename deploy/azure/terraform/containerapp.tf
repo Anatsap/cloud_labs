@@ -53,6 +53,20 @@ resource "azurerm_container_app" "app" {
       }
     }
 
+    dynamic "custom_scale_rule" {
+      for_each = var.schedule_enabled ? [1] : []
+      content {
+        name             = "business-hours"
+        custom_rule_type = "cron"
+        metadata = {
+          timezone        = "Europe/Kyiv"
+          start           = "0 9 * * *"
+          end             = "0 21 * * *"
+          desiredReplicas = "2"
+        }
+      }
+    }
+
     container {
       name   = "api"
       image  = "${azurerm_container_registry.acr.login_server}/${var.project}-api:bootstrap"
@@ -70,6 +84,14 @@ resource "azurerm_container_app" "app" {
       env {
         name        = "ADMIN_PASSWORD"
         secret_name = "admin-password"
+      }
+      env {
+        name  = "CACHE_ENABLED"
+        value = tostring(var.cache_enabled)
+      }
+      env {
+        name  = "REDIS_URL"
+        value = "redis://${azurerm_container_app.redis.name}:6379/0"
       }
     }
   }

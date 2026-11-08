@@ -1,13 +1,70 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from flask_restful import Resource, Api, reqparse, fields, marshal_with, abort
+from flask_restful import Resource, Api, reqparse, fields, marshal_with, marshal, abort
 from flask_cors import CORS
 from sqlalchemy import desc, asc, func, text
 import os
+import json
+import uuid
+import redis
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from flasgger import Swagger
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 app = Flask(__name__)
-CORS(app) 
+CORS(app)
+
+CACHE_ENABLED = os.environ.get("CACHE_ENABLED", "false").lower() == "true"   
+ASYNC_WRITES = os.environ.get("ASYNC_WRITES", "false").lower() == "true"      
+CACHE_TTL = 45                  # секунд
+IDEM_TTL = 24 * 60 * 60         # бонус 7: результат за ключем зберігається 24 години
+REQUEST_TTL = 24 * 60 * 60      # статус запиту з черги зберігається 24 години
+SERVICEBUS_CONNECTION = os.environ.get("SERVICEBUS_CONNECTION")
+QUEUE_NAME = os.environ.get("QUEUE_NAME", "car-writes")
+
+rds = None
+if os.environ.get("REDIS_URL"):
+    rds = redis.Redis.from_url(os.environ["REDIS_URL"], socket_timeout=0.5, decode_responses=True)
+def cache_get(key):
+    if not (CACHE_ENABLED and rds):
+        return None
+    try:
+        value = rds.get(key)
+        rds.incr("stats:hit" if value else "stats:miss")
+        return json.loads(value) if value else None
+    except redis.RedisError:
+        return None
+
+
+def cache_set(key, data):
+    if CACHE_ENABLED and rds:
+        try:
+            rds.setex(key, CACHE_TTL, json.dumps(data))
+        except redis.RedisError:
+            pass
+
+
+def cache_invalidate():
+    if rds:
+        try:
+            for k in rds.scan_iter("cars:list:*"):
+                rds.delete(k)
+        except redis.RedisError:
+            pass
+_sender = None
+
+
+def send_to_queue(payload):
+    """Кладе повідомлення в чергу. Відправник створюється один раз на процес."""
+    global _sender
+    if _sender is None:
+        client = ServiceBusClient.from_connection_string(SERVICEBUS_CONNECTION)
+        _sender = client.get_queue_sender(queue_name=QUEUE_NAME)
+    try:
+        _sender.send_messages(ServiceBusMessage(json.dumps(payload)))
+    except Exception:
+        _sender = None  
+        raise
+
 
 # app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///database.db")
@@ -52,7 +109,7 @@ class Login(Resource):
 
 
 class CarModel(db.Model):
-    __tablename__ = 'car' 
+    __tablename__ = 'car'
     id = db.Column(db.Integer, primary_key=True)
     brand = db.Column(db.String(80), nullable=False)
     engine_power = db.Column(db.Integer, nullable=False)
@@ -103,14 +160,41 @@ def apply_filters(query, args):
     if search_term:
         search_pattern = f"%{search_term}%"
         query = query.filter(
-            (CarModel.brand.ilike(search_pattern)) | 
+            (CarModel.brand.ilike(search_pattern)) |
             (CarModel.type.ilike(search_pattern))
         )
     return query
 
 
+def create_car(args):
+    """Створює автомобіль. Повертає (тіло відповіді, код)."""
+    if ASYNC_WRITES:
+        if not (rds and SERVICEBUS_CONNECTION):
+            abort(503, message="Черга або Redis не налаштовані")
+        request_id = str(uuid.uuid4())
+        rds.set(f"req:{request_id}", json.dumps({"status": "queued"}), ex=REQUEST_TTL)
+        send_to_queue({
+            "request_id": request_id,
+            "car": {
+                "brand": args["brand"],
+                "engine_power": args["engine_power"],
+                "max_speed": args["max_speed"],
+                "img": args["img"],
+                "type": args["type"].lower(),
+                "price": args["price"],
+            },
+        })
+        return {"request_id": request_id, "status": "queued"}, 202
+
+    car = CarModel(brand=args["brand"], engine_power=args["engine_power"],
+                   max_speed=args["max_speed"], img=args["img"],
+                   type=args["type"].lower(), price=args["price"])
+    db.session.add(car)
+    db.session.commit()
+    return marshal(car, carFields), 201
+
+
 class Cars(Resource):
-    @marshal_with(carFields)
     def get(self):
         """
         List cars
@@ -121,14 +205,18 @@ class Cars(Resource):
             description: List of cars
         """
         args = car_get_parser.parse_args()
-        query = CarModel.query
-        
-        query = apply_filters(query, args) 
+
+        key = f"cars:list:{args.get('sort')}:{args.get('type')}:{args.get('search')}:{args.get('limit')}"
+        cached = cache_get(key)
+        if cached is not None:
+            return cached, 200
+
+        query = apply_filters(CarModel.query, args)
         sort_order = args.get('sort')
         if sort_order == 'high':
-            query = query.order_by(desc(CarModel.price)) 
+            query = query.order_by(desc(CarModel.price))
         elif sort_order == 'low':
-            query = query.order_by(asc(CarModel.price)) 
+            query = query.order_by(asc(CarModel.price))
 
         limit = args.get('limit')
         if limit:
@@ -136,10 +224,12 @@ class Cars(Resource):
                 query = query.order_by(desc(CarModel.id))
             query = query.limit(min(max(limit, 1), 200))
 
-        cars = query.all()
-        return cars, 200
+        data = marshal(query.all(), carFields)
 
-    @marshal_with(carFields)
+        # 3. Кладемо в кеш і повертаємо
+        cache_set(key, data)
+        return data, 200
+
     @jwt_required()
     def post(self):
         """
@@ -147,6 +237,10 @@ class Cars(Resource):
         ---
         tags: [Cars]
         parameters:
+          - name: Idempotency-Key
+            in: header
+            type: string
+            required: false
           - name: body
             in: body
             required: true
@@ -162,21 +256,42 @@ class Cars(Resource):
         responses:
           201:
             description: Created
+          202:
+            description: Accepted (запис поставлено в чергу)
+          409:
+            description: Запит із цим ключем ще виконується
         """
         args = car_args.parse_args()
-        car = CarModel(brand=args["brand"], engine_power=args["engine_power"], 
-                       max_speed=args["max_speed"], img=args["img"], 
-                       type=args["type"].lower(), price=args["price"])
-        db.session.add(car)
-        db.session.commit()
-        return car, 201
+
+        key = request.headers.get("Idempotency-Key")
+        use_key = bool(key and rds)
+
+        if use_key:
+            # SET NX: лише перший запит із цим ключем отримає True
+            if not rds.set(f"idem:{key}", "processing", nx=True, ex=IDEM_TTL):
+                saved = rds.get(f"idem:{key}")
+                if saved is None or saved == "processing":
+                    return {"message": "Запит із цим ключем ще виконується, повторіть пізніше"}, 409
+                saved = json.loads(saved)
+                return saved["body"], saved["status"]  
+
+        try:
+            body, code = create_car(args)
+        except Exception:
+            if use_key:
+                rds.delete(f"idem:{key}")   
+            raise
+
+        if use_key:
+            rds.set(f"idem:{key}", json.dumps({"status": code, "body": body}), ex=IDEM_TTL)
+        return body, code
 
 class TotalPrice(Resource):
     def get(self):
         args = car_get_parser.parse_args()
         query = CarModel.query
-        
-        query = apply_filters(query, args) 
+
+        query = apply_filters(query, args)
         total = query.with_entities(func.sum(CarModel.price)).scalar()
         return jsonify({"total_price": float(total) if total else 0.0})
 
@@ -198,7 +313,7 @@ class Car(Resource):
         if not car:
             abort(404, "Car not found")
         return car
-    
+
     @marshal_with(carFields)
     @jwt_required()
     def patch(self, id):
@@ -236,7 +351,7 @@ class Car(Resource):
         car.price = args["price"]
         db.session.commit()
         return car
-    
+
     @marshal_with(carFields)
     @jwt_required()
     def delete(self, id):
@@ -252,15 +367,15 @@ class Car(Resource):
         """
         car = CarModel.query.filter_by(id=id).first()
         if not car:
-            return {"message": "Car not found"}, 404 
+            return {"message": "Car not found"}, 404
         db.session.delete(car)
         db.session.commit()
-        return "", 204 
+        return "", 204
 
-    
+
 api.add_resource(Cars, "/api/cars/")
 api.add_resource(Car, "/api/cars/<int:id>")
-api.add_resource(TotalPrice, "/api/cars/total_price/") 
+api.add_resource(TotalPrice, "/api/cars/total_price/")
 api.add_resource(Login, "/api/login")
 
 @app.route("/health")
@@ -271,6 +386,25 @@ def health():
 @app.route("/version")
 def version():
     return {"version": "3"}, 200
+
+@app.route("/cache/stats")
+def cache_stats():
+    if not (CACHE_ENABLED and rds):
+        return {"enabled": False}
+    hit = int(rds.get("stats:hit") or 0)
+    miss = int(rds.get("stats:miss") or 0)
+    return {"enabled": True, "hits": hit, "misses": miss,
+            "hit_ratio": hit / (hit + miss) if hit + miss else 0}
+
+@app.route("/api/requests/<request_id>")
+def request_status(request_id):
+    """Статус запису, який поставлено в чергу (бонус 6)."""
+    if not rds:
+        return {"message": "Redis не налаштовано"}, 503
+    value = rds.get(f"req:{request_id}")
+    if value is None:
+        return {"message": "Not found"}, 404
+    return json.loads(value), 200
 
 with app.app_context():
     db.create_all()
