@@ -1,0 +1,63 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: loadtest/loadtest.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 250 max VUs, 10m30s max duration (incl. graceful stop):
+              * default: Up to 250 looping VUs for 10m0s over 3 stages (gracefulRampDown: 30s, gracefulStop: 30s)
+
+
+running (00m00.9s), 001/250 VUs, 0 complete and 0 interrupted iterations
+default   [   0% ] 001/250 VUs  00m00.6s/10m00.0s
+
+running (00m01.9s), 003/250 VUs, 0 complete and 0 interrupted iterations
+default   [   0% ] 003/250 VUs  00m01.6s/10m00.0s
+
+running (00m02.9s), 004/250 VUs, 0 complete and 0 interrupted iterations
+default   [   0% ] 004/250 VUs  00m02.6s/10m00.0s
+
+running (00m03.9s), 005/250 VUs, 2 complete and 0 interrupted iterations
+default   [   1% ] 005/250 VUs  00m03.6s/10m00.0s
+
+running (00m04.9s), 007/250 VUs, 3 complete and 0 interrupted iterations
+default   [   1% ] 007/250 VUs  00m04.6s/10m00.0s
+
+running (00m05.9s), 008/250 VUs, 6 complete and 0 interrupted iterations
+default   [   1% ] 008/250 VUs  00m05.6s/10m00.0s
+
+running (00m06.9s), 010/250 VUs, 8 complete and 0 interrupted iterations
+default   [   1% ] 010/250 VUs  00m06.6s/10m00.0s
+
+running (00m07.9s), 011/250 VUs, 11 complete and 0 interrupted iterations
+default   [   1% ] 011/250 VUs  00m07.6s/10m00.0s
+
+running (00m08.9s), 012/250 VUs, 15 complete and 0 interrupted iterations
+default   [   1% ] 012/250 VUs  00m08.6s/10m00.0s
+
+running (00m09.9s), 014/250 VUs, 20 complete and 0 interrupted iterations
+default   [   2% ] 014/250 VUs  00m09.6s/10m00.0s
+
+running (00m10.9s), 015/250 VUs, 25 complete and 0 interrupted iterations
+default   [   2% ] 015/250 VUs  00m10.6s/10m00.0s
+
+running (00m11.9s), 017/250 VUs, 30 complete and 0 interrupted iterations
+default   [   2% ] 017/250 VUs  00m11.6s/10m00.0s
+
+running (00m12.9s), 018/250 VUs, 35 complete and 0 interrupted iterations
+default   [   2% ] 018/250 VUs  00m12.6s/10m00.0s
+
+running (00m13.9s), 019/250 VUs, 41 complete and 0 interrupted iterations
+default   [   2% ] 019/250 VUs  00m13.6s/10m00.0s
+
+running (00m14.9s), 021/250 VUs, 47 complete and 0 interrupted iterations
+default   [   2% ] 021/250 VUs  00m14.6s/10m00.0s
+
+running (00m15.9s), 022/250 VUs, 52 complete and 0 interrupted iterations
+default   [   3% ] 022/250 VUs  00m15.6s/10m00.0s

@@ -29,7 +29,7 @@ variable "admin_username" {
 
 variable "cache_enabled" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "schedule_enabled" {

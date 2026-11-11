@@ -18,4 +18,7 @@ gunicorn==23.0.0
 psycopg2-binary==2.9.10
 flasgger==0.9.7.1
 Flask-JWT-Extended==4.7.1
-redis==5.2.1
+redis==5.0.8
+azure-servicebus==7.12.3
+flasgger==0.9.7.1
+Flask-JWT-Extended==4.7.1

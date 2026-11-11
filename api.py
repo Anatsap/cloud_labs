@@ -15,9 +15,9 @@ CORS(app)
 
 CACHE_ENABLED = os.environ.get("CACHE_ENABLED", "false").lower() == "true"   
 ASYNC_WRITES = os.environ.get("ASYNC_WRITES", "false").lower() == "true"      
-CACHE_TTL = 45                  # секунд
-IDEM_TTL = 24 * 60 * 60         # бонус 7: результат за ключем зберігається 24 години
-REQUEST_TTL = 24 * 60 * 60      # статус запиту з черги зберігається 24 години
+CACHE_TTL = 45                  
+IDEM_TTL = 24 * 60 * 60        
+REQUEST_TTL = 24 * 60 * 60      
 SERVICEBUS_CONNECTION = os.environ.get("SERVICEBUS_CONNECTION")
 QUEUE_NAME = os.environ.get("QUEUE_NAME", "car-writes")
 
@@ -54,7 +54,6 @@ _sender = None
 
 
 def send_to_queue(payload):
-    """Кладе повідомлення в чергу. Відправник створюється один раз на процес."""
     global _sender
     if _sender is None:
         client = ServiceBusClient.from_connection_string(SERVICEBUS_CONNECTION)
@@ -167,7 +166,6 @@ def apply_filters(query, args):
 
 
 def create_car(args):
-    """Створює автомобіль. Повертає (тіло відповіді, код)."""
     if ASYNC_WRITES:
         if not (rds and SERVICEBUS_CONNECTION):
             abort(503, message="Черга або Redis не налаштовані")
@@ -191,6 +189,7 @@ def create_car(args):
                    type=args["type"].lower(), price=args["price"])
     db.session.add(car)
     db.session.commit()
+    cache_invalidate()
     return marshal(car, carFields), 201
 
 
@@ -226,7 +225,6 @@ class Cars(Resource):
 
         data = marshal(query.all(), carFields)
 
-        # 3. Кладемо в кеш і повертаємо
         cache_set(key, data)
         return data, 200
 
@@ -267,7 +265,6 @@ class Cars(Resource):
         use_key = bool(key and rds)
 
         if use_key:
-            # SET NX: лише перший запит із цим ключем отримає True
             if not rds.set(f"idem:{key}", "processing", nx=True, ex=IDEM_TTL):
                 saved = rds.get(f"idem:{key}")
                 if saved is None or saved == "processing":
@@ -350,6 +347,7 @@ class Car(Resource):
         car.type = args["type"].lower()
         car.price = args["price"]
         db.session.commit()
+        cache_invalidate()
         return car
 
     @marshal_with(carFields)
@@ -370,6 +368,7 @@ class Car(Resource):
             return {"message": "Car not found"}, 404
         db.session.delete(car)
         db.session.commit()
+        cache_invalidate()
         return "", 204
 
 
@@ -398,9 +397,8 @@ def cache_stats():
 
 @app.route("/api/requests/<request_id>")
 def request_status(request_id):
-    """Статус запису, який поставлено в чергу (бонус 6)."""
     if not rds:
-        return {"message": "Redis не налаштовано"}, 503
+        return {"message": "Redis not set"}, 503
     value = rds.get(f"req:{request_id}")
     if value is None:
         return {"message": "Not found"}, 404

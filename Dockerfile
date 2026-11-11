@@ -13,4 +13,4 @@ USER appuser
 
 EXPOSE 5000
 
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "api:app"]
+CMD ["gunicorn", "-w", "2", "--threads", "4", "-b", "0.0.0.0:5000", "api:app"]

@@ -6,11 +6,11 @@ import time
 import redis
 from azure.servicebus import ServiceBusClient
 
-from api import app, db, CarModel 
+from api import app, db, CarModel  
 
 CONNECTION = os.environ["SERVICEBUS_CONNECTION"]
 QUEUE_NAME = os.environ.get("QUEUE_NAME", "car-writes")
-DELAY = float(os.environ.get("WORKER_DELAY_SECONDS", "0"))  
+DELAY = float(os.environ.get("WORKER_DELAY_SECONDS", "0"))
 REQUEST_TTL = 24 * 60 * 60
 
 rds = None
@@ -19,22 +19,14 @@ if os.environ.get("REDIS_URL"):
 
 running = True
 
-
 def stop(*_):
-    """SIGTERM: дообробити поточну пачку й завершитись (коректне завершення)."""
     global running
     running = False
-
-
 signal.signal(signal.SIGTERM, stop)
 signal.signal(signal.SIGINT, stop)
-
-
 def set_status(request_id, data):
     if rds:
         rds.set(f"req:{request_id}", json.dumps(data), ex=REQUEST_TTL)
-
-
 def handle(payload):
     request_id = payload["request_id"]
     if rds:
@@ -46,14 +38,12 @@ def handle(payload):
     c = payload["car"]
     with app.app_context():
         car = CarModel(brand=c["brand"], engine_power=c["engine_power"],
-                       max_speed=c["max_speed"], img=c["img"],
+                    max_speed=c["max_speed"], img=c["img"],
                        type=c["type"], price=c["price"])
         db.session.add(car)
         db.session.commit()
         car_id = car.id
-
     set_status(request_id, {"status": "done", "car_id": car_id})
-
 
 def main():
     print("worker started", flush=True)
@@ -69,9 +59,8 @@ def main():
                         receiver.complete_message(msg)     
                     except Exception as e:
                         print(f"error: {e}", flush=True)
-                        receiver.abandon_message(msg)      
+                        receiver.abandon_message(msg)     
     print("worker stopped", flush=True)
-
-
 if __name__ == "__main__":
     main()
+

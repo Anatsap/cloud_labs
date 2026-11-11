@@ -40,17 +40,21 @@ resource "azurerm_container_app" "app" {
     value = random_password.admin.result
   }
 
-  template {
+template {
     min_replicas = 1
     max_replicas = 4
-
+    
     custom_scale_rule {
-      name             = "cpu-60"
-      custom_rule_type = "cpu"
-      metadata = {
-        type  = "Utilization"
-        value = "60"
-      }
+    name             = "cpu-scaling-rule"
+    custom_rule_type = "cpu"
+    metadata = {
+      type  = "Utilization"
+      value = "85"
+    }
+  }
+    http_scale_rule {
+      name                = "http-concurrency"
+      concurrent_requests = "80"
     }
 
     dynamic "custom_scale_rule" {

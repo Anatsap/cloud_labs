@@ -1,8 +1,3 @@
-# Панель моніторингу (завдання 3): п'ять графіків.
-# Усе, що стосується панелі, лежить у цьому файлі.
-
-# Журнал доступу Application Gateway надсилається в Log Analytics.
-# З нього рахується латентність p95 (звичайні метрики p95 не дають).
 resource "azurerm_monitor_diagnostic_setting" "agw" {
   name                       = "agw-logs"
   target_resource_id         = azurerm_application_gateway.agw.id
@@ -16,16 +11,12 @@ resource "azurerm_monitor_diagnostic_setting" "agw" {
 locals {
   app_id = azurerm_container_app.app.id
   agw_id = azurerm_application_gateway.agw.id
-
-  # Запит для графіка p95: timeTaken_d це час обробки запиту в секундах
   p95_query = "AzureDiagnostics | where Category == 'ApplicationGatewayAccessLog' | summarize p95_ms = percentile(timeTaken_d * 1000, 95) by bin(TimeGenerated, 1m) | order by TimeGenerated asc"
-
-  # Чотири графіки з метриками. agg: 1 = сума, 2 = мінімум, 3 = максимум, 4 = середнє
   metric_charts = [
     {
       x     = 0
       y     = 0
-      title = "Екземпляри (Replicas): мінімум і максимум за хвилину"
+      title = " (Replicas): мінімум і максимум за хвилину"
       res   = local.app_id
       ns    = "microsoft.app/containerapps"
       metrics = [
@@ -36,7 +27,7 @@ locals {
     {
       x     = 6
       y     = 0
-      title = "Завантаження CPU, % (ціль масштабування 60 %)"
+      title = " CPU, % (85 %)"
       res   = local.app_id
       ns    = "microsoft.app/containerapps"
       metrics = [
@@ -76,7 +67,6 @@ resource "azurerm_portal_dashboard" "main" {
       "0" = {
         order = 0
         parts = merge(
-          # Графіки з метриками
           {
             for i, c in local.metric_charts : tostring(i) => {
               position = { x = c.x, y = c.y, colSpan = 6, rowSpan = 4 }
@@ -100,13 +90,7 @@ resource "azurerm_portal_dashboard" "main" {
                         }]
                         visualization = { chartType = 2 }
                       }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          # Графік p95 з журналу (запит KQL)
+                    }}}}}},
           {
             "4" = {
               position = { x = 6, y = 4, colSpan = 6, rowSpan = 4 }
@@ -133,12 +117,7 @@ resource "azurerm_portal_dashboard" "main" {
                   { name = "IsQueryContainTimeRange", value = false, isOptional = true },
                 ]
                 settings = {}
-              }
-            }
-          }
-        )
-      }
-    }
+              }}})}}
     metadata = { model = {} }
   })
 }

@@ -89,4 +89,3 @@ resource "azurerm_monitor_metric_alert" "errors_5xx" {
     action_group_id = azurerm_monitor_action_group.email.id
   }
 }
-
